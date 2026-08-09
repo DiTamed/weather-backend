@@ -1,31 +1,22 @@
-# Weather Backend
+# Weather Backend API
 
-Backend FastAPI cung cấp API tra cứu thời tiết hiện tại theo tên thành phố. Dữ liệu thời tiết và tọa độ được lấy từ [OpenWeather](https://openweathermap.org/api).
+Backend FastAPI cung cấp dữ liệu thời tiết theo tên thành phố. Dự án sử dụng [Open-Meteo](https://open-meteo.com/) để tìm tọa độ, lấy thời tiết hiện tại, lịch sử 7 ngày và dự báo 7 ngày.
 
-## Công nghệ sử dụng
+## Chức năng
 
-- Python 3.10 trở lên
-- FastAPI và Uvicorn
-- httpx để gọi OpenWeather API
-- python-dotenv để đọc biến môi trường
+- Tìm tọa độ thành phố bằng Open-Meteo Geocoding API.
+- Lấy dữ liệu thời tiết hiện tại.
+- Lấy lịch sử thời tiết 7 ngày gần nhất.
+- Lấy dự báo thời tiết cho 7 ngày tiếp theo.
 
-## Cấu trúc thư mục
+## Yêu cầu
 
-```text
-weather-backend/
-├── app/
-│   ├── api/routes/          # Khai báo các API endpoint
-│   ├── services/            # Logic gọi dịch vụ thời tiết và địa điểm
-│   ├── schemas/             # Model/schema dữ liệu (mở rộng sau này)
-│   ├── config.py            # Đọc cấu hình từ .env
-│   └── main.py              # Điểm khởi chạy FastAPI
-├── data/                    # Dữ liệu dự án (nếu có)
-├── requirements.txt         # Thư viện Python cần cài
-├── .gitignore
-└── README.md
-```
+- Python 3.10 trở lên.
+- Git.
 
-## Thiết lập môi trường
+Phiên bản dự án này sử dụng các endpoint công khai của Open-Meteo nên **không cần API key**. Tham khảo [tài liệu Open-Meteo](https://open-meteo.com/en/docs) và [Geocoding API](https://open-meteo.com/en/docs/geocoding-api) khi cần bổ sung biến thời tiết.
+
+## Cài đặt và chạy dự án
 
 ### 1. Clone repository
 
@@ -34,20 +25,13 @@ git clone https://github.com/DiTamed/weather-backend.git
 cd weather-backend
 ```
 
-### 2. Tạo và kích hoạt môi trường ảo
+### 2. Tạo môi trường ảo
 
 Windows PowerShell:
 
 ```powershell
 python -m venv venv
 .\venv\Scripts\Activate.ps1
-```
-
-Windows CMD:
-
-```bat
-python -m venv venv
-venv\Scripts\activate
 ```
 
 macOS/Linux:
@@ -57,31 +41,24 @@ python3 -m venv venv
 source venv/bin/activate
 ```
 
-### 3. Cài đặt dependencies
+### 3. Cài đặt thư viện
 
 ```bash
 pip install -r requirements.txt
 ```
 
-### 4. Tạo API key OpenWeather
+### 4. Cấu hình Open-Meteo
 
-1. Đăng ký/đăng nhập tại [OpenWeather](https://home.openweathermap.org/users/sign_up).
-2. Tạo hoặc lấy API key trong mục **API keys**.
-3. Tạo file `.env` ở thư mục gốc dự án.
-
-Nội dung mẫu cho `.env`:
+Tạo hoặc cập nhật file `.env` ở thư mục gốc dự án:
 
 ```env
-OPENWEATHER_API_KEY=thay_api_key_cua_ban_vao_day
-OPENWEATHER_BASE_URL=https://api.openweathermap.org/data/2.5
-OPENWEATHER_GEO_URL=https://api.openweathermap.org/geo/1.0
+OPEN_METEO_BASE_URL=https://api.open-meteo.com/v1/forecast
+OPEN_METEO_GEO_URL=https://geocoding-api.open-meteo.com/v1/search
 ```
 
-Không commit file `.env` hoặc API key lên Git. File này đã được bỏ qua bởi `.gitignore`.
+Nếu file `.env` còn các biến `OPENWEATHER_*` cũ, hãy thay chúng bằng hai biến `OPEN_METEO_*` ở trên. Mặc dù không chứa API key, `.env` vẫn được giữ ngoài Git để mỗi môi trường có thể dùng URL cấu hình riêng.
 
-## Chạy dự án
-
-Trong khi môi trường ảo đang được kích hoạt, chạy:
+### 5. Khởi chạy server
 
 ```bash
 uvicorn app.main:app --reload
@@ -89,150 +66,134 @@ uvicorn app.main:app --reload
 
 Server mặc định chạy tại `http://127.0.0.1:8000`.
 
-- Swagger UI: `http://127.0.0.1:8000/docs`
-- ReDoc: `http://127.0.0.1:8000/redoc`
-- Kiểm tra trạng thái: `http://127.0.0.1:8000/health`
+| Địa chỉ | Mục đích |
+| --- | --- |
+| `http://127.0.0.1:8000/docs` | Swagger UI để thử API |
+| `http://127.0.0.1:8000/redoc` | Tài liệu API dạng ReDoc |
+| `http://127.0.0.1:8000/health` | Kiểm tra server hoạt động |
 
-## API hiện có
+## API
+
+Mọi API thời tiết nhận query parameter `city`, ví dụ `city=Ho Chi Minh City`.
 
 | Method | Endpoint | Mô tả |
 | --- | --- | --- |
 | `GET` | `/` | Kiểm tra API đang chạy |
-| `GET` | `/health` | Health check, trả về `{"status": "ok"}` |
-| `GET` | `/api/weather/current?city={ten_thanh_pho}` | Lấy thời tiết hiện tại theo tên thành phố |
+| `GET` | `/health` | Health check |
+| `GET` | `/api/weather/current?city={city}` | Thời tiết hiện tại |
+| `GET` | `/api/weather/history?city={city}` | Lịch sử 7 ngày gần nhất |
+| `GET` | `/api/weather/forecast?city={city}` | Dự báo 7 ngày tiếp theo |
 
-Ví dụ gọi API:
+### Ví dụ gọi API
 
 ```bash
 curl "http://127.0.0.1:8000/api/weather/current?city=Ho%20Chi%20Minh"
+curl "http://127.0.0.1:8000/api/weather/history?city=Da%20Nang"
+curl "http://127.0.0.1:8000/api/weather/forecast?city=Ha%20Noi"
 ```
 
-Ví dụ dữ liệu trả về rút gọn:
+Ví dụ phản hồi của API thời tiết hiện tại:
 
 ```json
 {
   "success": true,
   "location": {
     "name": "Ho Chi Minh City",
-    "country": "VN",
+    "country": "Vietnam",
+    "state": "Ho Chi Minh",
     "lat": 10.8231,
-    "lon": 106.6297
+    "lon": 106.6297,
+    "timezone": "Asia/Ho_Chi_Minh"
   },
   "current": {
     "temperature": 30.0,
+    "feels_like": 35.2,
     "humidity": 70,
-    "weather": "Clouds",
-    "description": "mây rải rác"
+    "precipitation": 0.0,
+    "wind_speed": 8.1,
+    "weather_code": 3
   }
 }
 ```
 
+Trong phản hồi `history` và `forecast`, trường `daily` chứa các mảng theo ngày: `weather_code`, nhiệt độ cao nhất/thấp nhất, tổng lượng mưa, xác suất mưa cao nhất và tốc độ gió lớn nhất. `weather_code` là mã thời tiết WMO do Open-Meteo trả về.
+
+Nếu không tìm thấy thành phố, API trả về `404`. Lỗi khi gọi Open-Meteo hoặc lỗi cấu hình được trả về dưới dạng `500`.
+
+## Cấu trúc dự án
+
+```text
+app/
+├── api/routes/       # Khai báo các endpoint
+├── services/         # Gọi Open-Meteo và xử lý dữ liệu
+├── schemas/          # Các schema dữ liệu
+├── config.py         # Đọc URL từ .env
+└── main.py           # Khởi tạo FastAPI
+data/                 # Dữ liệu của dự án
+requirements.txt      # Danh sách thư viện Python
+```
+
 ## Quy trình làm việc với Git
 
-Luôn tạo nhánh mới từ `main` cho từng chức năng hoặc lỗi cần sửa. Không làm việc trực tiếp trên `main`.
+Mỗi chức năng hoặc lỗi cần sửa phải thực hiện trên một nhánh riêng; không commit trực tiếp vào `main`.
 
-### 1. Cập nhật nhánh `main`
+### Tạo nhánh cho công việc mới
 
 ```bash
 git switch main
 git pull origin main
-```
-
-### 2. Tạo nhánh mới
-
-Quy ước đặt tên:
-
-- `feature/ten-chuc-nang` — thêm chức năng
-- `fix/mo-ta-loi` — sửa lỗi
-- `docs/noi-dung` — cập nhật tài liệu
-- `refactor/noi-dung` — cải tổ mã nguồn
-
-Ví dụ thêm API dự báo:
-
-```bash
 git switch -c feature/weather-forecast
 ```
 
-Kiểm tra nhánh hiện tại:
+Quy ước đặt tên nhánh:
 
-```bash
-git branch --show-current
-git status
-```
+- `feature/ten-chuc-nang`: thêm chức năng.
+- `fix/mo-ta-loi`: sửa lỗi.
+- `docs/noi-dung`: cập nhật tài liệu.
+- `refactor/noi-dung`: cải tổ mã nguồn.
 
-### 3. Làm việc và kiểm tra thay đổi
+Ví dụ: `feature/air-quality`, `fix/city-not-found`, `docs/update-readme`.
 
-Sau khi chỉnh sửa mã, chạy ứng dụng hoặc kiểm tra API trên Swagger. Sau đó xem lại các file sẽ commit:
+### Commit và push
+
+Sau khi hoàn thành chức năng, kiểm tra thay đổi:
 
 ```bash
 git status
 git diff
 ```
 
-Không thêm `.env`, `venv/`, `__pycache__/` hoặc dữ liệu nhạy cảm vào commit.
-
-### 4. Commit thay đổi
-
-Chỉ add các file liên quan:
+Chỉ thêm các file liên quan, tạo commit rõ nghĩa và push nhánh:
 
 ```bash
 git add app/api/routes/weather.py
-git add README.md
+git add app/services/weather_service.py
 git commit -m "feat: add weather forecast endpoint"
-```
-
-Một số tiền tố commit nên dùng:
-
-- `feat:` thêm chức năng
-- `fix:` sửa lỗi
-- `docs:` cập nhật tài liệu
-- `refactor:` chỉnh cấu trúc nhưng không đổi hành vi
-- `test:` thêm hoặc sửa kiểm thử
-- `chore:` thay đổi cấu hình/công việc phụ trợ
-
-### 5. Push nhánh lên GitHub
-
-Lần đầu push nhánh:
-
-```bash
 git push -u origin feature/weather-forecast
 ```
 
-Các lần sau trên cùng nhánh:
+`-u` chỉ cần dùng ở lần push đầu tiên. Các lần sau dùng:
 
 ```bash
 git push
 ```
 
-Sau khi push, vào GitHub để tạo Pull Request từ nhánh của bạn vào `main`. Mô tả ngắn gọn chức năng đã làm, cách kiểm tra và các lưu ý cần review. Chỉ merge sau khi được review hoặc cả nhóm thống nhất.
+Sau khi push, tạo Pull Request từ nhánh của bạn vào `main`. Mô tả Pull Request cần nêu chức năng đã làm, cách kiểm tra và các điểm cần review.
 
-### 6. Đồng bộ nhánh khi `main` có thay đổi
+### Đồng bộ nhánh với `main`
 
-Trước khi tạo Pull Request hoặc khi làm việc trong thời gian dài:
+Trước khi tạo Pull Request, cập nhật thay đổi mới nhất từ `main`:
 
 ```bash
 git fetch origin
 git merge origin/main
 ```
 
-Nếu có xung đột, sửa các file được Git báo, sau đó:
+Nếu có xung đột, sửa file được Git báo, sau đó hoàn tất và push lại:
 
 ```bash
 git add <file-da-sua>
 git commit
 git push
-```
-
-## Lệnh nhanh cho một công việc mới
-
-```bash
-git switch main
-git pull origin main
-git switch -c feature/ten-chuc-nang
-# code va kiem tra
-git status
-git add <cac-file-lien-quan>
-git commit -m "feat: mo ta thay doi"
-git push -u origin feature/ten-chuc-nang
 ```
 
