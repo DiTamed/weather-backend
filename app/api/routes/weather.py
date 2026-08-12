@@ -144,3 +144,5 @@ async def get_weather_15_days(
         raise Exception(
             "Không thể lấy dữ liệu Open-Meteo."
         )
+
+    
