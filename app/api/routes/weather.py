@@ -14,20 +14,19 @@ router = APIRouter(
 )
 
 
-# ==========================================
+# =========================================================
 # CURRENT WEATHER
-# ==========================================
+# =========================================================
 
 @router.get("/current")
 async def current_weather(city: str):
 
     try:
 
-        # Tìm thành phố
+        # 1. Tìm thành phố
         location = await get_coordinates(city)
 
         if not location:
-
             raise HTTPException(
                 status_code=404,
                 detail=f"Không tìm thấy thành phố: {city}"
@@ -37,13 +36,13 @@ async def current_weather(city: str):
         lon = location["lon"]
 
 
-        # Lấy thời tiết hiện tại
+        # 2. Lấy thời tiết hiện tại
         weather = await get_current_weather(
             lat,
             lon
         )
 
-        current = weather["current"]
+        current = weather.get("current", {})
 
 
         return {
@@ -52,9 +51,9 @@ async def current_weather(city: str):
 
             "location": {
 
-                "name": location["name"],
+                "name": location.get("name"),
 
-                "country": location["country"],
+                "country": location.get("country"),
 
                 "state": location.get("state"),
 
@@ -98,33 +97,38 @@ async def current_weather(city: str):
 
 
     except HTTPException:
-
         raise
 
 
     except Exception as e:
 
-        print("ERROR:", str(e))
+        print(
+            "CURRENT WEATHER ERROR:",
+            str(e)
+        )
 
         raise HTTPException(
             status_code=500,
-            detail=str(e)
+            detail="Không thể lấy dữ liệu thời tiết hiện tại."
         )
 
 
-# ==========================================
+# =========================================================
 # 15 DAYS WEATHER
-# 7 DAYS BEFORE + TODAY + 7 DAYS AFTER
-# ==========================================
+#
+# 7 ngày trước
+# + hôm nay
+# + 7 ngày sau
+# =========================================================
 
 @router.get("/15-days")
 async def weather_15_days(city: str):
 
     try:
 
-        # =====================================
-        # 1. Lấy latitude / longitude
-        # =====================================
+        # =================================================
+        # 1. Lấy tọa độ thành phố
+        # =================================================
 
         location = await get_coordinates(city)
 
@@ -140,9 +144,9 @@ async def weather_15_days(city: str):
         lon = location["lon"]
 
 
-        # =====================================
-        # 2. Lấy dữ liệu Open-Meteo
-        # =====================================
+        # =================================================
+        # 2. Lấy dữ liệu từ Open-Meteo
+        # =================================================
 
         weather = await get_weather_15_days(
             lat,
@@ -156,28 +160,39 @@ async def weather_15_days(city: str):
         )
 
 
-        # =====================================
-        # 3. Lấy danh sách ngày
-        # =====================================
+        # =================================================
+        # 3. Kiểm tra dữ liệu
+        # =================================================
 
         dates = daily.get(
             "time",
             []
         )
 
+        if not dates:
+
+            raise HTTPException(
+                status_code=404,
+                detail="Không có dữ liệu thời tiết."
+            )
+
+
+        # =================================================
+        # 4. Convert dữ liệu
+        # =================================================
 
         result = []
 
-
-        # =====================================
-        # 4. Convert dữ liệu
-        # =====================================
 
         for i, date in enumerate(dates):
 
             result.append({
 
                 "date": date,
+
+                # -----------------------------------------
+                # Temperature
+                # -----------------------------------------
 
                 "temperature": {
 
@@ -191,6 +206,10 @@ async def weather_15_days(city: str):
 
                 },
 
+                # -----------------------------------------
+                # Feels Like
+                # -----------------------------------------
+
                 "feels_like": {
 
                     "max": daily[
@@ -203,9 +222,17 @@ async def weather_15_days(city: str):
 
                 },
 
+                # -----------------------------------------
+                # Humidity
+                # -----------------------------------------
+
                 "humidity": daily[
                     "relative_humidity_2m_mean"
                 ][i],
+
+                # -----------------------------------------
+                # Rain
+                # -----------------------------------------
 
                 "precipitation": daily[
                     "precipitation_sum"
@@ -219,9 +246,17 @@ async def weather_15_days(city: str):
                     "precipitation_probability_max"
                 ][i],
 
+                # -----------------------------------------
+                # Wind
+                # -----------------------------------------
+
                 "wind_speed": daily[
                     "wind_speed_10m_max"
                 ][i],
+
+                # -----------------------------------------
+                # Weather Code
+                # -----------------------------------------
 
                 "weather_code": daily[
                     "weather_code"
@@ -230,9 +265,9 @@ async def weather_15_days(city: str):
             })
 
 
-        # =====================================
+        # =================================================
         # 5. Response
-        # =====================================
+        # =================================================
 
         return {
 
@@ -240,9 +275,13 @@ async def weather_15_days(city: str):
 
             "location": {
 
-                "name": location["name"],
+                "name": location.get(
+                    "name"
+                ),
 
-                "country": location["country"],
+                "country": location.get(
+                    "country"
+                ),
 
                 "state": location.get(
                     "state"
@@ -276,14 +315,13 @@ async def weather_15_days(city: str):
 
 
     except HTTPException:
-
         raise
 
 
     except Exception as e:
 
         print(
-            "ERROR:",
+            "15 DAYS WEATHER ERROR:",
             str(e)
         )
 
@@ -291,6 +329,6 @@ async def weather_15_days(city: str):
 
             status_code=500,
 
-            detail=str(e)
+            detail="Không thể lấy dữ liệu thời tiết 15 ngày."
 
         )
