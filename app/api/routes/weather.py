@@ -1,334 +1,146 @@
-from fastapi import APIRouter, HTTPException
+import asyncio
+import httpx
 
-from app.services.location_service import get_coordinates
-
-from app.services.weather_service import (
-    get_current_weather,
-    get_weather_15_days
-)
+from app.config import OPEN_METEO_BASE_URL
 
 
-router = APIRouter(
-    prefix="/api/weather",
-    tags=["Weather"]
-)
+async def get_current_weather(lat: float, lon: float):
 
+    params = {
+        "latitude": lat,
+        "longitude": lon,
 
-# =========================================================
-# CURRENT WEATHER
-# =========================================================
+        "current": ",".join([
+            "temperature_2m",
+            "relative_humidity_2m",
+            "apparent_temperature",
+            "precipitation",
+            "weather_code",
+            "wind_speed_10m"
+        ]),
 
-@router.get("/current")
-async def current_weather(city: str):
+        "timezone": "auto"
+    }
 
-    try:
+    async with httpx.AsyncClient(
+        timeout=15.0
+    ) as client:
 
-        # 1. Tìm thành phố
-        location = await get_coordinates(city)
+        for attempt in range(3):
 
-        if not location:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Không tìm thấy thành phố: {city}"
+            response = await client.get(
+                OPEN_METEO_BASE_URL,
+                params=params
             )
 
-        lat = location["lat"]
-        lon = location["lon"]
+            print(
+                "OPEN-METEO CURRENT STATUS:",
+                response.status_code
+            )
 
+            # =========================
+            # RATE LIMIT
+            # =========================
 
-        # 2. Lấy thời tiết hiện tại
-        weather = await get_current_weather(
-            lat,
-            lon
-        )
+            if response.status_code == 429:
 
-        current = weather.get("current", {})
+                if attempt < 2:
 
+                    print(
+                        "Open-Meteo rate limit. "
+                        "Retry after 10 seconds..."
+                    )
 
-        return {
+                    await asyncio.sleep(10)
 
-            "success": True,
+                    continue
 
-            "location": {
-
-                "name": location.get("name"),
-
-                "country": location.get("country"),
-
-                "state": location.get("state"),
-
-                "lat": lat,
-
-                "lon": lon,
-
-                "timezone": location.get("timezone")
-
-            },
-
-            "current": {
-
-                "temperature": current.get(
-                    "temperature_2m"
-                ),
-
-                "feels_like": current.get(
-                    "apparent_temperature"
-                ),
-
-                "humidity": current.get(
-                    "relative_humidity_2m"
-                ),
-
-                "precipitation": current.get(
-                    "precipitation"
-                ),
-
-                "wind_speed": current.get(
-                    "wind_speed_10m"
-                ),
-
-                "weather_code": current.get(
-                    "weather_code"
+                raise Exception(
+                    "Open-Meteo đang giới hạn request (429). "
+                    "Vui lòng thử lại sau."
                 )
 
-            }
+            response.raise_for_status()
 
-        }
+            return response.json()
 
-
-    except HTTPException:
-        raise
-
-
-    except Exception as e:
-
-        print(
-            "CURRENT WEATHER ERROR:",
-            str(e)
-        )
-
-        raise HTTPException(
-            status_code=500,
-            detail="Không thể lấy dữ liệu thời tiết hiện tại."
+        raise Exception(
+            "Không thể lấy dữ liệu Open-Meteo."
         )
 
 
-# =========================================================
-# 15 DAYS WEATHER
-#
-# 7 ngày trước
-# + hôm nay
-# + 7 ngày sau
-# =========================================================
+async def get_weather_15_days(
+    lat: float,
+    lon: float
+):
 
-@router.get("/15-days")
-async def weather_15_days(city: str):
+    params = {
+        "latitude": lat,
+        "longitude": lon,
 
-    try:
+        "past_days": 7,
 
-        # =================================================
-        # 1. Lấy tọa độ thành phố
-        # =================================================
+        "forecast_days": 8,
 
-        location = await get_coordinates(city)
+        "daily": ",".join([
+            "weather_code",
 
-        if not location:
+            "temperature_2m_max",
+            "temperature_2m_min",
 
-            raise HTTPException(
-                status_code=404,
-                detail=f"Không tìm thấy thành phố: {city}"
+            "apparent_temperature_max",
+            "apparent_temperature_min",
+
+            "relative_humidity_2m_mean",
+
+            "precipitation_sum",
+            "rain_sum",
+            "precipitation_probability_max",
+
+            "wind_speed_10m_max"
+        ]),
+
+        "timezone": "auto"
+    }
+
+    async with httpx.AsyncClient(
+        timeout=15.0
+    ) as client:
+
+        for attempt in range(3):
+
+            response = await client.get(
+                OPEN_METEO_BASE_URL,
+                params=params
             )
 
-
-        lat = location["lat"]
-        lon = location["lon"]
-
-
-        # =================================================
-        # 2. Lấy dữ liệu từ Open-Meteo
-        # =================================================
-
-        weather = await get_weather_15_days(
-            lat,
-            lon
-        )
-
-
-        daily = weather.get(
-            "daily",
-            {}
-        )
-
-
-        # =================================================
-        # 3. Kiểm tra dữ liệu
-        # =================================================
-
-        dates = daily.get(
-            "time",
-            []
-        )
-
-        if not dates:
-
-            raise HTTPException(
-                status_code=404,
-                detail="Không có dữ liệu thời tiết."
+            print(
+                "OPEN-METEO 15 DAYS STATUS:",
+                response.status_code
             )
 
+            if response.status_code == 429:
 
-        # =================================================
-        # 4. Convert dữ liệu
-        # =================================================
+                if attempt < 2:
 
-        result = []
+                    print(
+                        "Open-Meteo rate limit. "
+                        "Retry after 10 seconds..."
+                    )
 
+                    await asyncio.sleep(10)
 
-        for i, date in enumerate(dates):
+                    continue
 
-            result.append({
-
-                "date": date,
-
-                # -----------------------------------------
-                # Temperature
-                # -----------------------------------------
-
-                "temperature": {
-
-                    "max": daily[
-                        "temperature_2m_max"
-                    ][i],
-
-                    "min": daily[
-                        "temperature_2m_min"
-                    ][i]
-
-                },
-
-                # -----------------------------------------
-                # Feels Like
-                # -----------------------------------------
-
-                "feels_like": {
-
-                    "max": daily[
-                        "apparent_temperature_max"
-                    ][i],
-
-                    "min": daily[
-                        "apparent_temperature_min"
-                    ][i]
-
-                },
-
-                # -----------------------------------------
-                # Humidity
-                # -----------------------------------------
-
-                "humidity": daily[
-                    "relative_humidity_2m_mean"
-                ][i],
-
-                # -----------------------------------------
-                # Rain
-                # -----------------------------------------
-
-                "precipitation": daily[
-                    "precipitation_sum"
-                ][i],
-
-                "rain": daily[
-                    "rain_sum"
-                ][i],
-
-                "rain_probability": daily[
-                    "precipitation_probability_max"
-                ][i],
-
-                # -----------------------------------------
-                # Wind
-                # -----------------------------------------
-
-                "wind_speed": daily[
-                    "wind_speed_10m_max"
-                ][i],
-
-                # -----------------------------------------
-                # Weather Code
-                # -----------------------------------------
-
-                "weather_code": daily[
-                    "weather_code"
-                ][i]
-
-            })
-
-
-        # =================================================
-        # 5. Response
-        # =================================================
-
-        return {
-
-            "success": True,
-
-            "location": {
-
-                "name": location.get(
-                    "name"
-                ),
-
-                "country": location.get(
-                    "country"
-                ),
-
-                "state": location.get(
-                    "state"
-                ),
-
-                "lat": lat,
-
-                "lon": lon,
-
-                "timezone": location.get(
-                    "timezone"
+                raise Exception(
+                    "Open-Meteo đang giới hạn request (429). "
+                    "Vui lòng thử lại sau."
                 )
 
-            },
+            response.raise_for_status()
 
-            "period": {
+            return response.json()
 
-                "past_days": 7,
-
-                "today": 1,
-
-                "future_days": 7,
-
-                "total_days": len(result)
-
-            },
-
-            "daily": result
-
-        }
-
-
-    except HTTPException:
-        raise
-
-
-    except Exception as e:
-
-        print(
-            "15 DAYS WEATHER ERROR:",
-            str(e)
-        )
-
-        raise HTTPException(
-
-            status_code=500,
-
-            detail="Không thể lấy dữ liệu thời tiết 15 ngày."
-
+        raise Exception(
+            "Không thể lấy dữ liệu Open-Meteo."
         )
