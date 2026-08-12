@@ -252,4 +252,4 @@ async def weather_alerts(city: str):
         print("ERROR:", str(e))
         raise HTTPException(status_code=500, detail=str(e))
 
-        )
+        
