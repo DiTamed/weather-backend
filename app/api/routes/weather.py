@@ -16,20 +16,19 @@ router = APIRouter(
 )
 
 
-# ==========================================
+# =========================================================
 # CURRENT WEATHER
-# ==========================================
+# =========================================================
 
 @router.get("/current")
 async def current_weather(city: str):
 
     try:
 
-        # Tìm thành phố
+        # 1. Tìm thành phố
         location = await get_coordinates(city)
 
         if not location:
-
             raise HTTPException(
                 status_code=404,
                 detail=f"Không tìm thấy thành phố: {city}"
@@ -39,13 +38,13 @@ async def current_weather(city: str):
         lon = location["lon"]
 
 
-        # Lấy thời tiết hiện tại
+        # 2. Lấy thời tiết hiện tại
         weather = await get_current_weather(
             lat,
             lon
         )
 
-        current = weather["current"]
+        current = weather.get("current", {})
 
 
         return {
@@ -54,9 +53,9 @@ async def current_weather(city: str):
 
             "location": {
 
-                "name": location["name"],
+                "name": location.get("name"),
 
-                "country": location["country"],
+                "country": location.get("country"),
 
                 "state": location.get("state"),
 
@@ -100,17 +99,19 @@ async def current_weather(city: str):
 
 
     except HTTPException:
-
         raise
 
 
     except Exception as e:
 
-        print("ERROR:", str(e))
+        print(
+            "CURRENT WEATHER ERROR:",
+            str(e)
+        )
 
         raise HTTPException(
             status_code=500,
-            detail=str(e)
+            detail="Không thể lấy dữ liệu thời tiết hiện tại."
         )
 
 
