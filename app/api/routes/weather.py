@@ -6,9 +6,10 @@ from app.services.weather_service import (
     get_current_weather,
     get_weather_15_days
 )
-
 # Import module phân tích của Vinh
 from app.services.weather_analyzer import WeatherAnalyzer
+# Import module cảnh báo của Thắng
+from app.services.extreme_weather import ExtremeWeatherAnalyzer
 
 router = APIRouter(
     prefix="/api/weather",
@@ -213,4 +214,44 @@ async def weather_15_days(city: str):
         raise HTTPException(
             status_code=500,
             detail=str(e)
+
         )
+
+# ==========================================
+# BE 2: CẢNH BÁO THỜI TIẾT BẤT THƯỜNG
+# ==========================================
+@router.get("/alerts")
+async def weather_alerts(city: str):
+    try:
+        location = await get_coordinates(city)
+        if not location:
+            raise HTTPException(status_code=404, detail=f"Không tìm thấy thành phố: {city}")
+
+        weather = await get_weather_15_days(location["lat"], location["lon"])
+        daily = weather.get("daily", {})
+
+        if not daily or "time" not in daily or len(daily["time"]) < 15:
+            return {"success": False, "message": "Không đủ dữ liệu thời tiết"}
+
+        # Cắt 7 ngày đầu tiên làm dữ liệu lịch sử (baseline)
+        history_daily = {key: val[:7] for key, val in daily.items() if isinstance(val, list)}
+
+        # Đưa toàn bộ data và history vào phân tích
+        alerts_result = ExtremeWeatherAnalyzer.analyze_extremes(daily, historical_baseline=history_daily)
+
+        return {
+            "success": True,
+            "location": {
+                "name": location["name"],
+                "country": location["country"]
+            },
+            "alerts_data": alerts_result
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print("ERROR:", str(e))
+        raise HTTPException(status_code=500, detail=str(e))
+
+        
