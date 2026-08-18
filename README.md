@@ -1,199 +1,92 @@
-# Weather Backend API
+# Weather Backend API & Intelligent Recommendation System
 
-Backend FastAPI cung cấp dữ liệu thời tiết theo tên thành phố. Dự án sử dụng [Open-Meteo](https://open-meteo.com/) để tìm tọa độ, lấy thời tiết hiện tại, lịch sử 7 ngày và dự báo 7 ngày.
+Backend FastAPI cung cấp dịch vụ thời tiết, phân tích số liệu nâng cao, phát hiện hiện tượng bất thường và đưa ra các khuyến nghị thông minh (Nông nghiệp thông minh, Gợi ý sinh hoạt, Phân tích chất lượng không khí AQI).
 
-## Chức năng
+Hệ thống sử dụng dữ liệu từ [Open-Meteo Weather Forecast API](https://open-meteo.com/) và [Open-Meteo Air Quality API](https://open-meteo.com/en/docs/air-quality-api) (hoàn toàn miễn phí, không yêu cầu API key).
 
-- Tìm tọa độ thành phố bằng Open-Meteo Geocoding API.
-- Lấy dữ liệu thời tiết hiện tại.
-- Lấy lịch sử thời tiết 7 ngày gần nhất.
-- Lấy dự báo thời tiết cho 7 ngày tiếp theo.
+---
 
-## Yêu cầu
+## Các Module Chức Năng
 
-- Python 3.10 trở lên.
-- Git.
+### 1. BE 1 — Phân tích dữ liệu thời tiết (Weather Analytics)
+- Thu thập dữ liệu thời tiết từ Open-Meteo.
+- Xử lý, làm sạch và chuẩn hóa dữ liệu bằng **Pandas** và **NumPy**.
+- **Phân tích nhiệt độ**: Nhiệt độ trung bình, cao nhất, thấp nhất, biên độ nhiệt, cảm giác nhiệt thực tế (`feels_like`) và xu hướng tăng/giảm.
+- **Phân tích lượng mưa**: Tổng lượng mưa, lượng mưa trung bình, số ngày có mưa, tỷ lệ ngày mưa, ngày có mưa lớn nhất.
+- **Phân tích độ ẩm**: Độ ẩm trung bình, cao nhất, thấp nhất và đánh giá trạng thái ẩm ướt/khô hanh.
+- **Phân tích tốc độ gió**: Tốc độ gió cực đại, trung bình và phân loại cấp gió theo thang Beaufort.
+- **So sánh 15 ngày**: Đối chiếu 7 ngày lịch sử với 7 ngày dự báo tương lai để phát hiện xu hướng biến đổi khí hậu ngắn hạn.
 
-Phiên bản dự án này sử dụng các endpoint công khai của Open-Meteo nên **không cần API key**. Tham khảo [tài liệu Open-Meteo](https://open-meteo.com/en/docs) và [Geocoding API](https://open-meteo.com/en/docs/geocoding-api) khi cần bổ sung biến thời tiết.
+### 2. BE 2 — Phân tích bất thường & Cảnh báo thời tiết (Extreme Weather Alerts)
+- **Module `extreme_weather.py`**:
+  - Phát hiện nắng nóng gay gắt ($\ge 35^\circ\text{C}$, $\ge 38^\circ\text{C}$) và đợt nắng nóng kéo dài (Heatwave $\ge 3$ ngày liên tiếp).
+  - Phát hiện rét đậm, rét hại nguy hiểm ($\le 15^\circ\text{C}$, $\le 10^\circ\text{C}$).
+  - Cảnh báo mưa to, mưa rất to ($\ge 30\text{mm}$, $\ge 70\text{mm}$) và nguy cơ ngập lụt, sạt lở.
+  - Cảnh báo gió mạnh, gió bão chuẩn hóa theo $\text{km/h}$.
+  - Cảnh báo độ ẩm bất thường (khô hanh $\le 35\%$ nguy cơ cháy nổ, nồm ẩm $\ge 92\%$).
+  - Phân cấp mức độ nguy hiểm: `SAFE` $\rightarrow$ `INFO` $\rightarrow$ `WARNING` $\rightarrow$ `CRITICAL`.
+  - So sánh độ lệch nhiệt độ và lượng mưa với dữ liệu lịch sử tuần trước.
 
-## Cài đặt và chạy dự án
+### 3. BE 3 — Phân tích thông minh & Recommendation
+- **Trụ cột 1: Nông nghiệp thông minh (Smart Agriculture)**:
+  - Phân tích nhiệt độ, lượng mưa, độ ẩm, mùa vụ (Xuân/Hạ/Thu/Đông hoặc Mùa Mưa/Mùa Khô) và vùng sinh thái nông nghiệp Việt Nam (Bắc Bộ, Trung Bộ, Tây Nguyên, Nam Bộ).
+  - Kết hợp hệ thống tri thức nông học **Rule-Based Engine** và mô hình học máy **Machine Learning (Random Forest Classifier)**.
+  - Đề xuất cây trồng tối ưu kèm điểm tương thích (Suitability Score $0-100\%$).
+  - Hướng dẫn chế độ tưới tiêu, thoát nước và cảnh báo rủi ro sâu bệnh (đạo ôn, rầy nâu, thán thư, mốc sương).
+- **Trụ cột 2: Gợi ý sinh hoạt đời sống (Daily Life Recommendations)**:
+  - Khuyến nghị trang phục linh hoạt theo cảm giác nhiệt và phụ kiện đi kèm (ô dù, áo mưa, kem chống nắng, kính râm, khẩu trang N95).
+  - Đánh giá tính khả thi cho các hoạt động ngoài trời: Thể thao / Chạy bộ, Dã ngoại / Cắm trại, Phơi đồ, Rửa xe, Cà phê sân vườn.
+  - Lời khuyên sức khỏe, phòng chống sốc nhiệt, bảo vệ đường hô hấp và an toàn sấm sét.
+  - Cảnh báo giao thông, đường trơn trượt và ngập nước.
+- **Trụ cột 3: Phân tích chất lượng không khí (Air Quality - AQI)**:
+  - Tích hợp Open-Meteo Air Quality API với các thông số: $\text{PM}_{2.5}$, $\text{PM}_{10}$, $\text{CO}$, $\text{NO}_2$, $\text{O}_3$, $\text{SO}_2$.
+  - Tính toán Sub-index và chỉ số AQI tổng hợp theo chuẩn EPA.
+  - Xác định chất gây ô nhiễm chủ đạo (Dominant Pollutant).
+  - Đưa ra khuyến nghị sức khỏe cho cộng đồng và nhóm người nhạy cảm (trẻ nhỏ, người già, người mắc bệnh hô hấp/tim mạch).
 
-### 1. Clone repository
+---
 
-```bash
-git clone https://github.com/DiTamed/weather-backend.git
-cd weather-backend
-```
+## Cài đặt và Chạy
 
-### 2. Tạo môi trường ảo
-
-Windows PowerShell:
-
+### 1. Kích hoạt môi trường ảo
 ```powershell
-python -m venv venv
 .\venv\Scripts\Activate.ps1
 ```
 
-macOS/Linux:
-
-```bash
-python3 -m venv venv
-source venv/bin/activate
-```
-
-### 3. Cài đặt thư viện
-
+### 2. Cài đặt thư viện
 ```bash
 pip install -r requirements.txt
 ```
 
-### 4. Cấu hình Open-Meteo
-
-Tạo hoặc cập nhật file `.env` ở thư mục gốc dự án:
-
-```env
-OPEN_METEO_BASE_URL=https://api.open-meteo.com/v1/forecast
-OPEN_METEO_GEO_URL=https://geocoding-api.open-meteo.com/v1/search
-```
-
-Nếu file `.env` còn các biến `OPENWEATHER_*` cũ, hãy thay chúng bằng hai biến `OPEN_METEO_*` ở trên. Mặc dù không chứa API key, `.env` vẫn được giữ ngoài Git để mỗi môi trường có thể dùng URL cấu hình riêng.
-
-### 5. Khởi chạy server
-
+### 3. Khởi chạy Server
 ```bash
 uvicorn app.main:app --reload
 ```
 
-Server mặc định chạy tại `http://127.0.0.1:8000`.
+Swagger UI thử nghiệm API tại: `http://127.0.0.1:8000/docs`
 
-| Địa chỉ | Mục đích |
-| --- | --- |
-| `http://127.0.0.1:8000/docs` | Swagger UI để thử API |
-| `http://127.0.0.1:8000/redoc` | Tài liệu API dạng ReDoc |
-| `http://127.0.0.1:8000/health` | Kiểm tra server hoạt động |
+---
 
-## API
+## Danh sách API Endpoints
 
-Mọi API thời tiết nhận query parameter `city`, ví dụ `city=Ho Chi Minh City`.
-
+### Thời tiết & Dự báo (Weather)
 | Method | Endpoint | Mô tả |
-| --- | --- | --- |
-| `GET` | `/` | Kiểm tra API đang chạy |
-| `GET` | `/health` | Health check |
-| `GET` | `/api/weather/current?city={city}` | Thời tiết hiện tại |
-| `GET` | `/api/weather/history?city={city}` | Lịch sử 7 ngày gần nhất |
-| `GET` | `/api/weather/forecast?city={city}` | Dự báo 7 ngày tiếp theo |
+| :--- | :--- | :--- |
+| `GET` | `/api/weather/current?city={city}` | Lấy thời tiết hiện tại |
+| `GET` | `/api/weather/15-days?city={city}` | Lấy dữ liệu 15 ngày (kèm phân tích BE1) |
+| `GET` | `/api/weather/alerts?city={city}` | Cảnh báo thời tiết bất thường |
 
-### Ví dụ gọi API
+### Phân tích số liệu (Analysis - BE 1 & BE 2)
+| Method | Endpoint | Mô tả |
+| :--- | :--- | :--- |
+| `GET` | `/api/analysis/summary?city={city}` | Báo cáo thống kê toàn diện thời tiết (Nhiệt độ, Mưa, Gió, Độ ẩm) |
+| `GET` | `/api/analysis/trends?city={city}` | So sánh xu hướng 7 ngày quá khứ vs 7 ngày tương lai |
+| `GET` | `/api/analysis/extremes?city={city}` | Phát hiện hiện tượng cực đoan và phân cấp cảnh báo nguy hiểm |
 
-```bash
-curl "http://127.0.0.1:8000/api/weather/current?city=Ho%20Chi%20Minh"
-curl "http://127.0.0.1:8000/api/weather/history?city=Da%20Nang"
-curl "http://127.0.0.1:8000/api/weather/forecast?city=Ha%20Noi"
-```
-
-Ví dụ phản hồi của API thời tiết hiện tại:
-
-```json
-{
-  "success": true,
-  "location": {
-    "name": "Ho Chi Minh City",
-    "country": "Vietnam",
-    "state": "Ho Chi Minh",
-    "lat": 10.8231,
-    "lon": 106.6297,
-    "timezone": "Asia/Ho_Chi_Minh"
-  },
-  "current": {
-    "temperature": 30.0,
-    "feels_like": 35.2,
-    "humidity": 70,
-    "precipitation": 0.0,
-    "wind_speed": 8.1,
-    "weather_code": 3
-  }
-}
-```
-
-Trong phản hồi `history` và `forecast`, trường `daily` chứa các mảng theo ngày: `weather_code`, nhiệt độ cao nhất/thấp nhất, tổng lượng mưa, xác suất mưa cao nhất và tốc độ gió lớn nhất. `weather_code` là mã thời tiết WMO do Open-Meteo trả về.
-
-Nếu không tìm thấy thành phố, API trả về `404`. Lỗi khi gọi Open-Meteo hoặc lỗi cấu hình được trả về dưới dạng `500`.
-
-## Cấu trúc dự án
-
-```text
-app/
-├── api/routes/       # Khai báo các endpoint
-├── services/         # Gọi Open-Meteo và xử lý dữ liệu
-├── schemas/          # Các schema dữ liệu
-├── config.py         # Đọc URL từ .env
-└── main.py           # Khởi tạo FastAPI
-data/                 # Dữ liệu của dự án
-requirements.txt      # Danh sách thư viện Python
-```
-
-## Quy trình làm việc với Git
-
-Mỗi chức năng hoặc lỗi cần sửa phải thực hiện trên một nhánh riêng; không commit trực tiếp vào `main`.
-
-### Tạo nhánh cho công việc mới
-
-```bash
-git switch main
-git pull origin main
-git switch -c feature/weather-forecast
-```
-
-Quy ước đặt tên nhánh:
-
-- `feature/ten-chuc-nang`: thêm chức năng.
-- `fix/mo-ta-loi`: sửa lỗi.
-- `docs/noi-dung`: cập nhật tài liệu.
-- `refactor/noi-dung`: cải tổ mã nguồn.
-
-Ví dụ: `feature/air-quality`, `fix/city-not-found`, `docs/update-readme`.
-
-### Commit và push
-
-Sau khi hoàn thành chức năng, kiểm tra thay đổi:
-
-```bash
-git status
-git diff
-```
-
-Chỉ thêm các file liên quan, tạo commit rõ nghĩa và push nhánh:
-
-```bash
-git add app/api/routes/weather.py
-git add app/services/weather_service.py
-git commit -m "feat: add weather forecast endpoint"
-git push -u origin feature/weather-forecast
-```
-
-`-u` chỉ cần dùng ở lần push đầu tiên. Các lần sau dùng:
-
-```bash
-git push
-```
-
-Sau khi push, tạo Pull Request từ nhánh của bạn vào `main`. Mô tả Pull Request cần nêu chức năng đã làm, cách kiểm tra và các điểm cần review.
-
-### Đồng bộ nhánh với `main`
-
-Trước khi tạo Pull Request, cập nhật thay đổi mới nhất từ `main`:
-
-```bash
-git fetch origin
-git merge origin/main
-```
-
-Nếu có xung đột, sửa file được Git báo, sau đó hoàn tất và push lại:
-
-```bash
-git add <file-da-sua>
-git commit
-git push
-```
-
+### Khuyến nghị thông minh (Smart Recommendations - BE 3)
+| Method | Endpoint | Mô tả |
+| :--- | :--- | :--- |
+| `GET` | `/api/recommendations/lifestyle?city={city}` | Gợi ý trang phục, ngoài trời, sức khỏe và giao thông |
+| `GET` | `/api/recommendations/agriculture?city={city}` | Đề xuất cây trồng Rule-Based + Machine Learning & tưới tiêu |
+| `GET` | `/api/recommendations/air-quality?city={city}` | Phân tích nồng độ ô nhiễm, AQI và khuyến nghị y tế |
+| `GET` | `/api/recommendations/overview?city={city}` | Tổng hợp thông minh toàn bộ chỉ số thời tiết, AQI & khuyến nghị |

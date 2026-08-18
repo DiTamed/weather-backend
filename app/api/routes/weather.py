@@ -1,3 +1,4 @@
+# pyrefly: ignore [missing-import]
 from fastapi import APIRouter, HTTPException
 
 from app.services.location_service import get_coordinates
